@@ -1,0 +1,245 @@
+---
+title: Influence of Transmission Type on Vehicle Fuel Consumption - A foray into Regression
+  Analysis
+sansfont: Calibri Light
+output:
+  pdf_document:
+    highlight: pygments
+    includes:
+      in_header: header2.tex
+    keep_tex: no
+    number_sections: no
+  html_document:
+    highlight: pygments
+    keep_md: yes
+---
+\fontsize{9}{9}
+\selectfont
+
+```{r "Data", echo=FALSE, cache=TRUE, }
+## Loading the dataset
+library(datasets)
+data(mtcars)
+
+```
+
+#Executive Summary
+This analysis fits various linear regression models to the vehicle data to explore the relationship between variables and fuel effiiency (miles per gallon).  Initial exploratory analysis results indicated that a manual transmission is more fuel efficient.  Of interest is that the weight of the vehicle has a larger impact on fuel efficiency than the transmission type of the vehicle.  The heavier the vehicle, the less fuel efficient it becomes.  The linear regression analysis has borne out the exploratory results.  A manual vehicle is more fuel efficient than an automatic one.
+
+
+#Data Exploration
+
+A basic box plot (Appendix - Fig 1a) of a direct correlation between Miles per Gallon (*mpg*) and Transmission type (*am*) appears to show that a Manual (*am - 1*) transmission provides better fuel efficiency. An overview of the QQ Plot indicates a relatively even distribution of residuals around the mean (Fig 1b).
+
+A pair plot with correllation coefficients (Fig 2) for one-to-one comparisons of the various pairs of available variables indicate that transmission type has little correlation with any of the other variables, other than the 1/4 mile time (*qsec*).  Therefore other variable interactions need to be explored in conjunction with the mpg ~ am baseline. For the purposes of this analysis & exploration, only correlations of an absolute value of 0.7 or higher will be considered potential candidates.
+
+# Model Fitting, Testing and Selection
+
+In the basic correlation done during exploratory analysis, transmission type appeared to not be highly correlated with vehicle fuel efficiency taken in isolation.  There are other variables that are more significant.  Given that the transmission type is a requirement for the analysis, the baseline model used for all model fitting is **mpg ~ am**.  Covariance and confounding factors were explored through two modelling schemas, and then combined to achieve the final fit.  
+
+###Modelling schemas:
+
+For a complete output of the various linear models used in the schemas below, please go to https://github.com/Chaendryn/Regression_Project - only the signifcant outputs are detailed below.
+
+**1. Backward step wise removal of variables until only the most significant other than the baseline remained.**  
+The strategy followed started with a linear regression model (fitAll), to evaluate each variable against mpg based on the p-value. Thereafter iteratively removing the values in order of least significant (as judged from p-value in resulting coefficient summaries).
+
+```{r "Models1", echo=FALSE, fig.width=8, fig.height=4}
+## Method 1
+fitAll <- lm(mpg ~ ., data=mtcars)
+fitAlla <- update(fitAll, mpg ~ . - qsec) 
+fitAllb <- update(fitAlla, mpg ~ . - qsec - carb) 
+fitAllc <- update(fitAllb, mpg ~ . - qsec - carb - gear)
+fitAlld <- update(fitAllc, mpg ~ . - qsec - carb - gear - drat)
+fitAlle <- update(fitAlld, mpg ~ . - qsec - carb - gear - drat - vs)
+fitAllf <- update(fitAlle, mpg ~ . - qsec - carb - gear - drat - vs - cyl)
+fitAllg <- update(fitAllf, mpg ~ . - qsec - carb - gear - drat - vs - cyl - disp)
+fitAllh <- update(fitAllg, mpg ~ . - qsec - carb - gear - drat - vs - cyl - disp - hp)
+
+meth1Anova <- anova(fitAll, fitAlla, fitAllb, fitAllc, fitAlld, fitAlle, fitAllf, fitAllg, fitAllh)
+
+library(xtable)
+
+print(xtable(summary(fitAllh)), file="fitAllh.tex", floating=FALSE)
+print(xtable(meth1Anova), file="m1A.tex", floating=FALSE)
+```
+
+**2. Interactions between variables directly tied to engine efficiency**  
+The efficiency of a vehicle engine has an impact on the vehicle's fuel efficiency. While we do not have an engine efficiency variable in the dataset, the interaction of the following variables in addition to the baseline was assessed to see whether there were any that had a significant impact on fuel consumption (as judged from the p-value in the resulting coefficent summaries) - number of cylinders (*cyl*), displacement (*disp*), gross horsepower (*hp*), rear axle ratio (*drat*).  The impact of weight on the initial modeling has indicated that an adjustment for the influence of weight on the other variables needs to be made.  Baseline model for this schema - mpg ~ am:weight.
+
+
+```{r "Models2", echo=FALSE,fig.width=8, fig.height=4}
+
+## Method 2
+fit1 <- lm(mpg ~ am:wt, mtcars)
+fit1a <- update(fit1, mpg ~ am:wt + hp)
+fit1b <- update(fit1a, mpg ~ am:wt + hp*cyl)
+fit1c <- update(fit1b, mpg ~ am:wt + hp*cyl*disp)
+fit1d <- update(fit1c, mpg ~ am:wt + hp*cyl*disp*drat)
+
+
+meth2Anova <- anova(fit1, fit1a, fit1b, fit1c, fit1d)
+
+library(xtable)
+
+print(xtable(summary(fit1a)), file="fit1a.tex", floating=FALSE)
+print(xtable(meth2Anova), file="m2A.tex", floating=FALSE)
+```
+
+**3. Combination of best performers in schemas 1 & 2 - evaluation for final fit.**  
+
+Anova nested model evaluations were done and the best performers identified by the significance of the Pr(>F) output (see Table 2 below).  
+
+The best performer from modelling schema 1 (fitAllh) was the addition of a single variable **weight** (*wt*). The best performer from schema 2 was the addition of the variable **gross horsepower** (*hp*) adjusted for weight (fit1a).   
+
+In this schema, we are evaluating the following models:  
+- the impact of on mpg keeping transmission type and weight constant  
+- the impact on mpg keeping transmission type, weight and raw horsepower constant  
+- the impact on mpg keeping raw horsepower constant, while adjusting for the influence of weight. 
+
+
+
+```{r "Models", echo=FALSE}
+
+## Method 3
+fit2 <- lm(mpg ~ am + wt, mtcars)
+fit2a <- update(fit2, mpg ~ am + wt + hp)
+fit2b <- update(fit2a, mpg ~ am:wt + hp)
+
+
+meth3Anova <- anova(fit2, fit2a, fit2b)
+
+library(xtable)
+print(xtable(summary(fit2b)), file="fit2b.tex", floating=FALSE)
+print(xtable(meth3Anova), file="m3A.tex", floating=FALSE)
+```
+
+\begin{table}[ht]
+\centering
+\subfloat[Table - Coef Schema 1]{\label{tab:tab1a}\scalebox{.55}{\input{./fitAllh}}}\quad
+\subfloat[Table - Coef Schema 2]{\label{tab:tab1a}\scalebox{.55}{\input{./fit1a}}}
+
+\caption{Coefficients of best performers}
+\label{tab:tab1}
+\end{table}
+
+We can quantify the MPG difference between automatic and manual transmissions as follows:
+
+The intercepts indicated by the tables above are the MPG for an automatic vehicle. In Schema 1, having the exact same vehicle in all aspects other than transmission type, fuel efficiency will decrease i.e. the car will get 0.02 miles less per gallon.  This is not significant as there is an almost 100% chance that an observed value will be larger than this (p-value of `r summary(fitAllh)$coef[3,4]`). 
+
+Of interest is the impact that the weight of the vehicle has on fuel efficiency.  Across various models, this aspect has been influential on the outcome of the modelling.  In schema 1 the vehicle weight decreases fuel efficiency by 5.3528 per ton of increase in weight (p-value of `r summary(fitAllh)$coef[2,4]`)
+
+In Schema 2, the fuel efficiency for a manual vehicle will be 1.7324 miles per gallon better (adjusted for the influence of weight) with a very small margin either way (p-value of `r summary(fit1a)$coef[3,4]`). The intercept for schema 2 (mpg for an automatic vehicle) has been adjusted for the influence of weight.
+
+In evaluating the models for Schema 3 - the best model for Schema 2 (fuel efficiency keeping horse power constant and adjusting for weight) out performed both the other models tested.
+
+
+\begin{table}[ht]
+\centering
+\subfloat[Table - Anova Schema 1]{\label{tab:tab2a}\scalebox{.55}{\input{./m1A}}}\quad
+\subfloat[Table - Anova Schema 2]{\label{tab:tab2b}\scalebox{.55}{\input{./m2A}}}\quad
+\subfloat[Table - Anova Schema 3]{\label{tab:tab2c}\scalebox{.55}{\input{./m3A}}}
+\caption{Anova output from best fit}
+\label{tab:tab2}
+\end{table}
+
+In evaluating the plot (Fig 3a) the fitted values show a general linearity consistent with our model.  The residual plot (Fig 3b) shows no patterned spread around the mean, therefore normality can be assumed.  
+
+
+
+#Conclusions
+In conclusion - the initial exploratory analysis indicated a potential for manual vehicles to be more fuel efficient (mpg) than automatic transmission vehicles. Analysis of various linear models has shown that this is indeed the case, accounting for variability in other measures with weight being the most significant of those other variables.
+
+
+
+
+
+
+
+
+
+
+
+#Appendix - Figures
+
+
+
+```{r "ExplorePlots", echo=FALSE, cache=FALSE, fig.width=8, fig.height=4}
+
+par(mfrow = c(1,2))
+
+## Basic Boxplot
+boxplot(mtcars$mpg ~ mtcars$am, col = cm.colors(2), 
+        main="Fig 1a", 
+        xlab = "Transmision Type", ylab = "Miles per Gallon")
+
+
+fitExp <- lm(mpg ~ am, data = mtcars)
+
+## QQ Plot
+plot(fitExp, which=2, main = "Fig 1b")
+
+```
+
+
+```{r "CorPlot1", echo=FALSE, cache=FALSE, fig.height=6, fig.width=8}
+require(stats)
+require(graphics)
+
+par(mfrow = c(1,1))
+
+## The following code and figure is adapted from the help file for pairs and was found on http://personality-project.org/r/r.graphics.html
+
+## Put (absolute) correlations on the upper panels, with size proportional to the correlations.
+## Creating the function (panel.cor)
+     panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
+     {
+         usr <- par("usr"); on.exit(par(usr))
+         par(usr = c(0, 1, 0, 1))
+         r = cor(x, y)
+         txt <- format(c(r, 0.123456789), digits=digits)[1]
+         txt <- paste(prefix, txt, sep="")
+         if(missing(cex.cor)) cex <- 0.8/strwidth(txt)
+         text(0.5, 0.5, txt, cex = cex * abs(r))
+     }
+     
+## Plotting the pairs plot matrix
+par(mfrow = c(1,1)) 
+pairs(mtcars, lower.panel=panel.smooth, upper.panel=panel.cor, main = "Fig. 2 - Correlation Pairs Plot")
+```
+
+```{r "FinalPlots", echo=FALSE, cache=FALSE, fig.height=4, fig.width=8}
+par(mfrow = c(1,2)) 
+## Residual Plots
+
+y <- mtcars$mpg
+x <- fit2b$fitted
+n <- length(y)
+
+
+## Calculate residuals for the model in order to plot them.
+e <- resid(fit2b)
+
+plot(x, y, xlab = "Fitted Values", 
+      ylab = "Mpg",
+      bg = "lightblue",
+      main = "Fig. 3a - Fitted Values",
+      col = "black", cex = 2, pch = 21, frame = FALSE)
+
+## Plotting Residuals
+plot(x, e, xlab = "Fitted Values", 
+      ylab = "Residuals",
+      main = "Fig. 3b - Residuals",
+      bg = "lightblue",
+      col = "black", cex = 2, pch = 21, frame = FALSE)
+abline(h = 0, lwd = 2)
+```
+
+```{r "FinalPlots2", echo=FALSE, cache=FALSE, fig.height=6, fig.width=8}
+par(mfrow = c(2,2))
+plot(fit2b, which=1, main=("Fig 4a"))
+plot(fit2b, which=2, main=("Fig 4b"))
+plot(fit2b, which=3, main=("Fig 4c"))
+plot(fit2b, which=5, main=("Fig 4d"))
+```
+

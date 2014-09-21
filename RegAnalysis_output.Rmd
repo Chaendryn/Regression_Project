@@ -1,0 +1,167 @@
+---
+title: Influence of Transmission Type on Vehicle Fuel Consumption - A foray into Regression
+  Analysis
+sansfont: Calibri Light
+output:
+  pdf_document:
+    highlight: pygments
+    includes:
+      in_header: header2.tex
+    keep_tex: no
+    number_sections: no
+  html_document:
+    highlight: pygments
+    keep_md: yes
+---
+
+
+```{r "Data", echo=FALSE, cache=TRUE, }
+## Loading the dataset
+library(datasets)
+data(mtcars)
+
+```
+
+#Output Summaries
+
+## Correlation
+
+```{r "CorrelationsTables", echo=FALSE, message=FALSE}
+library(xtable)
+library(Hmisc)
+
+simpleCor <- cor(mtcars)
+corrs <- rcorr(as.matrix(mtcars), type="spearman")
+coCorr <- corrs$r
+pvCorr <- round(corrs$P, digits = 4)
+
+print(xtable(simpleCor), file="taa.tex", floating=FALSE)
+print(xtable(coCorr), file="tbb.tex", floating=FALSE)
+
+
+```
+
+\begin{table}[ht]
+\centering
+\subfloat[Table - Simple Correlation]{\label{tab:tab1a}\scalebox{.5}{\input{./taa}}}\quad
+\subfloat[Table - Pearson Correlation]{\label{tab:tab1b}\scalebox{.5}{\input{./tbb}}}
+\caption{One-to-One Correllations}
+\label{tab:tab1}
+\end{table}
+
+## Modelling schemas
+
+```{r "Models1", echo=TRUE}
+## Method 1
+fitAll <- lm(mpg ~ ., data=mtcars)
+fitAlla <- update(fitAll, mpg ~ . - qsec) 
+fitAllb <- update(fitAlla, mpg ~ . - qsec - carb) 
+fitAllc <- update(fitAllb, mpg ~ . - qsec - carb - gear)
+fitAlld <- update(fitAllc, mpg ~ . - qsec - carb - gear - drat)
+fitAlle <- update(fitAlld, mpg ~ . - qsec - carb - gear - drat - vs)
+fitAllf <- update(fitAlle, mpg ~ . - qsec - carb - gear - drat - vs - cyl)
+fitAllg <- update(fitAllf, mpg ~ . - qsec - carb - gear - drat - vs - cyl - disp)
+fitAllh <- update(fitAllg, mpg ~ . - qsec - carb - gear - drat - vs - cyl - disp - hp)
+
+meth1Anova <- anova(fitAll, fitAlla, fitAllb, fitAllc, fitAlld, fitAlle, fitAllf, fitAllg, fitAllh)
+
+library(xtable)
+
+print(xtable(summary(fitAll)), file="tall.tex", floating=FALSE)
+print(xtable(summary(fitAlla)$coef), file="talla.tex", floating=FALSE)
+print(xtable(summary(fitAllb)$coef), file="tallb.tex", floating=FALSE)
+print(xtable(summary(fitAllc)$coef), file="tallc.tex", floating=FALSE)
+print(xtable(summary(fitAlld)$coef), file="talld.tex", floating=FALSE)
+print(xtable(summary(fitAlle)$coef), file="talle.tex", floating=FALSE)
+print(xtable(summary(fitAllf)$coef), file="tallf.tex", floating=FALSE)
+print(xtable(summary(fitAllg)$coef), file="tallg.tex", floating=FALSE)
+
+meth1Anova
+
+```
+
+\begin{table}[ht]
+\centering
+\subfloat[Table - All]{\label{tab:tab1a}\scalebox{.5}{\input{./tall}}}\quad
+\subfloat[Table - a]{\label{tab:tab1b}\scalebox{.5}{\input{./talla}}}\quad
+\subfloat[Table - b]{\label{tab:tab1c}\scalebox{.5}{\input{./tallb}}}\quad
+\subfloat[Table - c]{\label{tab:tab1d}\scalebox{.5}{\input{./tallc}}}\quad
+\subfloat[Table - d]{\label{tab:tab1e}\scalebox{.5}{\input{./talld}}}\quad
+\subfloat[Table - e]{\label{tab:tab1f}\scalebox{.5}{\input{./talle}}}\quad
+\subfloat[Table - f]{\label{tab:tab1g}\scalebox{.5}{\input{./tallf}}}\quad
+\subfloat[Table - g]{\label{tab:tab1g}\scalebox{.5}{\input{./tallg}}}
+\caption{Step wise - back}
+\label{tab:tab1}
+\end{table}
+
+
+```{r "Models2", echo=TRUE}
+
+## Method 2
+fit1 <- lm(mpg ~ am:wt, mtcars)
+fit1a <- update(fit1, mpg ~ am:wt + hp)
+fit1b <- update(fit1a, mpg ~ am:wt + hp*cyl)
+fit1c <- update(fit1b, mpg ~ am:wt + hp*cyl*disp)
+fit1d <- update(fit1c, mpg ~ am:wt + hp*cyl*disp*drat)
+
+meth2Anova <- anova(fit1, fit1a, fit1b, fit1c, fit1d)
+
+library(xtable)
+
+print(xtable(summary(fit1)), file="t1.tex", floating=FALSE)
+print(xtable(summary(fit1a)$coef), file="t1a.tex", floating=FALSE)
+print(xtable(summary(fit1b)$coef), file="t1b.tex", floating=FALSE)
+print(xtable(summary(fit1c)$coef), file="t1c.tex", floating=FALSE)
+print(xtable(summary(fit1d)$coef), file="t1d.tex", floating=FALSE)
+
+meth2Anova
+```
+
+
+
+\begin{table}[ht]
+\centering
+\subfloat[Table - All]{\label{tab:tab2a}\scalebox{.5}{\input{./t1}}}\quad
+\subfloat[Table - a]{\label{tab:tab2b}\scalebox{.5}{\input{./t1a}}}\quad
+\subfloat[Table - b]{\label{tab:tab2c}\scalebox{.5}{\input{./t1b}}}\quad
+\subfloat[Table - c]{\label{tab:tab2d}\scalebox{.5}{\input{./t1c}}}\quad
+\subfloat[Table - d]{\label{tab:tab2e}\scalebox{.5}{\input{./t1d}}}
+\caption{Interactions}
+\label{tab:tab2}
+\end{table}
+
+```{r "Models3", echo=TRUE}
+
+## Method 3
+fit2 <- lm(mpg ~ am + wt, mtcars)
+fit2a <- update(fit2, mpg ~ am + wt + hp)
+fit2b <- update(fit2a, mpg ~ am:wt + hp)
+
+
+meth3Anova <- anova(fit2, fit2a, fit2b)
+
+library(xtable)
+
+print(xtable(summary(fit2)), file="t2.tex", floating=FALSE)
+print(xtable(summary(fit2a)$coef), file="t2a.tex", floating=FALSE)
+print(xtable(summary(fit2b)$coef), file="t2b.tex", floating=FALSE)
+
+
+meth3Anova
+```
+
+
+
+
+\begin{table}[ht]
+\centering
+\subfloat[Table - a]{\label{tab:tab3a}\scalebox{.5}{\input{./t2}}}\quad
+\subfloat[Table - b]{\label{tab:tab3b}\scalebox{.5}{\input{./t2a}}}\quad
+\subfloat[Table - c]{\label{tab:tab3c}\scalebox{.5}{\input{./t2b}}}\quad
+\caption{weight}
+\label{tab:tab3}
+\end{table}
+
+
+
+
